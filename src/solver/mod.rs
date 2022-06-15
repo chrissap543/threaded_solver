@@ -11,8 +11,8 @@ pub fn test_board() -> Vec<Vec<u8>> {
         vec![0, 5, 3, 0, 8, 0, 0, 9, 6],
     ]
 }
+pub static mut FINISHED: bool = false; 
 
-// todo implement any size board
 pub fn valid(board: &Vec<Vec<u8>>, row: usize, column: usize, guess: u8) -> bool {
     valid_box(board, row, column, guess) & valid_rowcol(board, row, column, guess)
 }
@@ -38,18 +38,30 @@ pub fn valid_rowcol(board: &Vec<Vec<u8>>, row: usize, column: usize, guess: u8) 
     true
 }
 
-pub fn next_empty(board: &Vec<Vec<u8>>) -> (usize, usize) {
-    for row in 0..9 {
+pub fn next_empty(board: &Vec<Vec<u8>>, start: (usize, usize)) -> (usize, usize) {
+    for col in start.1..9 {
+        if board[start.0][col] == 0 {
+            return (start.0, col); 
+        }
+    }
+    for row in start.0..9 {
         for col in 0..9 {
             if board[row][col] == 0 {
                 return (row, col);
             }
         }
     }
+    for row in 0..start.0 {
+        for col in 0..9 {
+            if board[row][col] == 0 {
+                return (row, col); 
+            }
+        }
+    }
     (10, 10)
 }
 pub fn is_solved(board: &Vec<Vec<u8>>) -> bool {
-    next_empty(board) == (10, 10)
+    next_empty(board, (0, 0)) == (10, 10)
 }
 
 pub fn guesses(board: &Vec<Vec<u8>>, row: usize, col: usize) -> Vec<u8> {
@@ -62,11 +74,17 @@ pub fn guesses(board: &Vec<Vec<u8>>, row: usize, col: usize) -> Vec<u8> {
     res
 }
 
-pub fn solve(board: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+pub fn solve(board: &Vec<Vec<u8>>, start: (usize, usize)) -> Vec<Vec<u8>> {
+    if unsafe { FINISHED } {
+        return board.to_vec(); 
+    }
     let mut answer = board.to_vec();
-    let empty_cell = next_empty(&board);
+    let empty_cell = next_empty(&board, start);
 
     if is_solved(&board) {
+        unsafe {
+            FINISHED = true; 
+        }
         return answer;
     }
 
@@ -75,8 +93,11 @@ pub fn solve(board: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
 
     for guess in guesses(board, row, col) {
         answer[row][col] = guess;
-        answer = solve(&answer);
+        answer = solve(&answer, start);
         if is_solved(&answer) {
+            unsafe {
+                FINISHED = true; 
+            }
             return answer;
         }
     }

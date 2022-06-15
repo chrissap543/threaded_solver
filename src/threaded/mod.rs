@@ -1,36 +1,32 @@
-use std::sync::{Arc, Mutex};
-use threadpool::ThreadPool;
+use rand::Rng; 
+use std::thread;  
+use std::time::Instant; 
 
 use crate::solver;
-use solver::*;
 
-pub fn solve(board: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
-    let workers = 8;
-    let pool = ThreadPool::new(workers);
+pub fn solve(board: &Vec<Vec<u8>>) -> Vec<u32> {
+    let mut ans = vec![]; 
+    let max_workers = 30;
+    for workers in 2..max_workers+1 {
+        let now = Instant::now(); 
 
-    let board = Arc::new(Mutex::new(board)); 
-    
-    pool.join(); 
-}
+        let mut worker_vect = vec![];     
+        for _ in 0..workers {
+            let row: usize = rand::thread_rng().gen_range(0..9); 
+            let col: usize = rand::thread_rng().gen_range(0..9); 
 
-fn execute(board: Arc<Vec<Vec<u8>>>, pool: ThreadPool) {
-    let mut answer = board.to_vec();
-    let empty_cell = next_empty(&board);
-
-    if is_solved(&board) {
-        return answer;
-    }
-
-    let row = empty_cell.0;
-    let col = empty_cell.1;
-
-    for guess in guesses(board, row, col) {
-        answer[row][col] = guess;
-        answer = solve(&answer);
-        if is_solved(&answer) {
-            return answer;
+            let board_copy = board.clone(); 
+            let t = thread::spawn(move || solver::solve(&board_copy, (row, col))); 
+            worker_vect.push(t); 
         }
+        while unsafe { !solver::FINISHED } {} 
+
+        let elapsed = now.elapsed(); 
+        ans.push(elapsed.subsec_micros()); 
+        for worker in worker_vect {
+            worker.join().unwrap(); 
+        }
+        unsafe { solver::FINISHED = false; }
     }
-    answer = board.to_vec();
-    answer
+    ans
 }
